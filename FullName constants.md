@@ -19,7 +19,7 @@ First, this change would allow `typeof(`...`).FullName` to be used in places whe
 ...
 ```
 
-With this proposal, you would be able to write this naturally as `[UseThisLogger(typeof(Logger<>).FullName)]`. `typeof` expressions are already given special treatment by the language as attribute arguments, and this special treatment is extended a little further to make `[Attr1(typeof(Xyz).FullName)]` work alongside `[Attr2(typeof(Xyz))]`.
+With this proposal, this would be able to be written naturally as `[UseThisLogger(typeof(Logger<>).FullName)]`. `typeof` expressions are already given special treatment by the language as attribute arguments, and this special treatment is extended a little further to make `[Attr1(typeof(Xyz).FullName)]` work alongside `[Attr2(typeof(Xyz))]`.
 
 Second, this change would bring performance improvements in existing code where `typeof(`...`).FullName` is used to build strings. The entire string which includes the type name could become constant, rather than interpolating or concatenating as a runtime operation.
 
