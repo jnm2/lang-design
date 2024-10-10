@@ -1,4 +1,4 @@
-# `FullName` string constants
+# `FullName` constants
 
 ## Summary
 
@@ -8,7 +8,7 @@ For certain kinds of types, `typeof(`...`).FullName` is considered a constant va
 
 The community has requested this feature often. Several duplicates and many variants have been filed, garnering a decent number of upvotes. This would be easy to implement, and it would bring multiple benefits.
 
-First, this change would allow `typeof(`...`).FullName` to be used in places where it is the obvious thing _to_ use, but where it is currently disallowed. You might naturally try to write `[UseThisLogger(typeof(Logger<>).FullName)]`, but today you'll be faced with writing workarounds such as:
+First, this change would allow `typeof(`...`).FullName` to be used in places where it is the obvious thing _to_ use, but where it is currently disallowed. Today you'll be faced with writing workarounds such as:
 
 ```cs
 [UseThisLogger(
@@ -19,19 +19,17 @@ First, this change would allow `typeof(`...`).FullName` to be used in places whe
 ...
 ```
 
+With this proposal, you would be able to write this naturally as `[UseThisLogger(typeof(Logger<>).FullName)]`. `typeof` expressions are already given special treatment by the language as attribute arguments, and this special treatment is extended a little further to make `[Attr1(typeof(Xyz).FullName)]` work alongside `[Attr2(typeof(Xyz))]`.
+
 Second, this change would bring performance improvements in existing code where `typeof(`...`).FullName` is used to build strings. The entire string which includes the type name could become constant, rather than interpolating or concatenating as a runtime operation.
 
 ## Detailed design
 
-When `.FullName` is used immediately on a `typeof` expression, and the referenced type is a supported kind of type, the `typeof(`...`).FullName` expression is a string constant. The constant value at compile time to exactly what the expression would evaluate to at runtime.
+When `.FullName` is used immediately on a `typeof` expression, and the referenced type is a supported kind of type, the `typeof(`...`).FullName` expression is a string constant. Types are supported when their resulting `FullName` strings are known at compile time and cannot change at runtime.
 
-It will be a constant everywhere, and not just only in places where a constant is required.
+Such an expressions will be a constant everywhere, not just in places where a constant is required. The value of the constant is the same as the value the expression would have if evaluated at runtime.
 
 ### Supported type kinds
-
-Types are supported when they refer to a specific, non-composed, type definition, to obtain the _full name_ of that type definition. This also implies that the resulting strings are known at compile time, which is also a requirement of any type that is supported by this feature.
-
-The _full name_ of a type definition is defined by the runtime's implementation of `System.Type.FullName`. For the types supported by this proposal, the full name generally includes a namespace if any, containing type names if any, and the referenced type name.
 
 Unbound generics are supported. `typeof(List<>).FullName` would produce the constant string ``"System.Collections.Generic.List`1"``.
 
@@ -41,15 +39,15 @@ Primitive type keywords are supported. `typeof(nint).FullName` would produce the
 
 Aliases are supported. The constant string resolves the actual type, the same way the expression would evaluate at runtime.
 
-### Unsupported type kinds
+Array types and pointer types are supported, both individually and when composed over each other. `typeof(int[])` or `typeof(int*)` or `typeof(int[,][]**)` all have constant `FullName`s.
 
-Array types and pointer types are not supported. `typeof(int[])` or `typeof(int*)` or `typeof(int[,][]**)` are composing types over each other, rather than referring to one specific type definition to obtain its namespace and name.
+### Unsupported type kinds
 
 Type parameters are not supported. `typeof(T)` is a type which is not known at compile time.
 
 Bound generics are not supported. `typeof(List<int>).FullName` contains parts known only at runtime. For example: ``"System.Collections.Generic.List`1[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``. The compiler may see only a reference assembly with a different name, or an assembly may load with a different version at runtime than at compile time.
 
-Nullable value types and tuple types are not supported. They fall by both points: they are instances of bound generics, whose `FullName` values can't be known at compile time, and they are also composing multiple type definitions together, contrary to the aim of this proposal which is to identify the full name of a specific type definition.
+Nullable value types and tuple types are not supported. They are also instances of bound generics, whose `FullName` values can't be known at compile time.
 
 - `typeof(int?).FullName` produces a string such as: ``"System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``.
 
