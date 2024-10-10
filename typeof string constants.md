@@ -39,7 +39,7 @@ Primitive type keywords are supported. `typeof(nint).FullName` would produce the
 
 Aliases are supported. The constant string resolves the actual type, the same way the expression would evaluate at runtime.
 
-Array types and pointer types are supported, both individually and when composed over each other. `typeof(int[])` or `typeof(int*)` or `typeof(int[,][]**)` all have constant `FullName`s.
+Array types and pointer types are supported, both individually and when composed over each other. `typeof(int[])` or `typeof(int*)` or `typeof(int[,][]**)` all have constant `FullName`s. When these composable types are used, their element types must also be supported types.
 
 ### Unsupported type kinds
 
@@ -47,11 +47,7 @@ Type parameters are not supported. `typeof(T)` is a type which is not known at c
 
 Bound generics are not supported. `typeof(List<int>).FullName` contains parts known only at runtime. For example: ``"System.Collections.Generic.List`1[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``. The compiler may see only a reference assembly with a different name, or an assembly may load with a different version at runtime than at compile time.
 
-Nullable value types and tuple types are not supported. They are also instances of bound generics, whose `FullName` values can't be known at compile time.
-
-- `typeof(int?).FullName` produces a string such as: ``"System.Nullable`1[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``.
-
-- `typeof((int, string)).FullName` produces a string such as: ``"System.ValueTuple`2[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e],[System.String, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``.
+Nullable value types and tuple types are special causes of bound generics and are not supported.
 
 ### Nullability
 
