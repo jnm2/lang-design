@@ -1,4 +1,4 @@
-# `FullName` constants
+# `typeof` string constants
 
 ## Summary
 
