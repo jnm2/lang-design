@@ -35,7 +35,7 @@ Unbound generics are supported. `typeof(List<>).FullName` would produce the cons
 
 Nested types are supported. `typeof(List<>.Enumerator).FullName` would produce the constant string ``"System.Collections.Generic.List`1+Enumerator"``.
 
-Primitive type keywords are supported. `typeof(nint).FullName` would produce the constant string `"System.IntPtr"`. This includes `typeof(void).FullName`, which produces `"System.Void"`. This does not include `dynamic` since it is not a valid argument to `typeof`.
+Primitive type keywords are supported. `typeof(nint).FullName` would produce the constant string `"System.IntPtr"`. This includes `typeof(void).FullName`, which produces `"System.Void"`.
 
 Aliases are supported. The constant string resolves the actual type, the same way the expression would evaluate at runtime.
 
