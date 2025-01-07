@@ -4,7 +4,29 @@ Champion issue: <TODO>
 
 ## Summary
 
-TODO
+This feature enables a type name to be omitted when it is the same as the target type.
+
+It paves the way for discriminated unions to benefit from expressing existing construction and consumption concepts, while also making consumption nicer today for manual type-based discriminated unions.
+
+Examples:
+
+```cs
+type.GetMethod("Name", .Public | .Instance | .DeclaredOnly);
+
+control.ForeColor = .FromArgb(81, 43, 212);
+entity.InvoiceDate = .Parse(dateField.Text);
+ReadJsonDocument(.Parse(stream));
+
+// Production (static members on Option<int>)
+Option<int> option = condition ? .None : .Some(42);
+
+// Consumption (nested derived types)
+return option switch
+{
+    .Some(var val) => val,
+    .None => defaultVal,
+};
+```
 
 ## Motivation
 
@@ -14,9 +36,10 @@ DUs, existing nested type checks, BindingFlags
 
 ## Detailed design
 
-In a target-typed location, there is a new primary expression which starts with `.` is followed by an identifier.
+In a target-typed location, there is a new primary expression which starts with `.` and is followed by an identifier.
 
 Allow `.NestedType1.NestedType2`.
+Allow `new .NestedDerived()` to mirror `is .NestedDerived`
 
 ### Target typing through overloadable operators
 
@@ -55,7 +78,7 @@ member_access
     ;
 ```
 
-if a `member_access` begins with `'.'`, it is a _target-typed member access_. It is only permitted in expression locations which provide a target type.
+If a `member_access` begins with `'.'`, it is a _target-typed member access_. It is only permitted in expression locations which provide a target type.
 
 ## Drawbacks
 
