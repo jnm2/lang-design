@@ -13,8 +13,8 @@ Examples:
 ```cs
 type.GetMethod("Name", .Public | .Instance | .DeclaredOnly);
 
-control.ForeColor = .FromArgb(81, 43, 212);
-entity.InvoiceDate = .Parse(dateField.Text);
+control.ForeColor = .Red;
+entity.InvoiceDate = .Now;
 ReadJsonDocument(.Parse(stream));
 
 // Production (static members on Option<int>)
@@ -37,9 +37,6 @@ DUs, existing nested type checks, BindingFlags
 ## Detailed design
 
 In a target-typed location, there is a new primary expression which starts with `.` and is followed by an identifier.
-
-Allow `.NestedType1.NestedType2`.
-Allow `new .NestedDerived()` to mirror `is .NestedDerived`
 
 ### Target typing through overloadable operators
 
@@ -67,18 +64,55 @@ void M(object p) { }
 
 ## Specification
 
-A production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar is added:
+`identifier type_argument_list?` is consolidated into a standalone syntax, `member_binding`, and this new syntax is then added as a production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar:
 
 ```diff
-member_access
-    : primary_expression '.' identifier type_argument_list?
-    | predefined_type '.' identifier type_argument_list?
-    | qualified_alias_member '.' identifier type_argument_list?
-+   | '.' identifier type_argument_list?
-    ;
+ member_access
+-    : primary_expression '.' identifier type_argument_list?
+-    | predefined_type '.' identifier type_argument_list?
+-    | qualified_alias_member '.' identifier type_argument_list?
++    : primary_expression member_binding
++    | predefined_type member_binding
++    | qualified_alias_member member_binding
++    | member_binding
+     ;
+
++member_binding
++    '.' identifier type_argument_list?
+
+ base_access
+-    : 'base' '.' identifier type_argument_list?
++    : 'base' member_binding
+     | 'base' '[' argument_list ']'
+     ;
+
+ null_conditional_member_access
+-    : primary_expression '?' '.' identifier type_argument_list?
++    : primary_expression '?' member_binding
+       (null_forgiving_operator? dependent_access)*
+     ;
+
+ dependent_access
+-    : '.' identifier type_argument_list?    // member access
++    : member_binding            // member access
+     | '[' argument_list ']'     // element access
+     | '(' argument_list? ')'    // invocation
+     ;
+
+ null_conditional_projection_initializer
+-    : primary_expression '?' '.' identifier type_argument_list?
++    : primary_expression '?' member_binding
+     ;
 ```
 
-If a `member_access` begins with `'.'`, it is a _target-typed member access_. It is only permitted in expression locations which provide a target type.
+As a primary expression, `member_binding` is only permitted in locations which provide a target type.
+
+Expand target-typing through:
+
+- overloadable operators: `.Public | .Instance`
+- invocation expressions: `.Create(...)`
+
+Compare to how target-typing works for `??`.
 
 ## Drawbacks
 
@@ -97,6 +131,10 @@ with (expr)
 ```
 
 This doesn't seem to be a popular request among the language team members who have commented on this. If we go ahead with the proposed target-typing for `.Name` syntax, this seals the fate of the requested `with` statement syntax shown here.
+
+## Expansions
+
+To match the production and consumption sides even better, constructors may
 
 ## Alternatives
 
