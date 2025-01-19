@@ -4,27 +4,30 @@ Champion issue: <TODO>
 
 ## Summary
 
-This feature enables a type name to be omitted when it is the same as the target type.
+This feature enables a type name to be omitted from static member access when it is the same as the target type.
 
 This reduces construction and consumption verbosity for factory methods, nested derived types, enum values, constants, singletons, and other static members. By doing so, the way is also paved for discriminated unions to benefit from the same concise construction and consumption syntaxes.
 
 Examples:
 
 ```cs
-type.GetMethod("Name", .Public | .Instance | .DeclaredOnly);
+type.GetMethod("Name", .Public | .Instance | .DeclaredOnly); // BindingFlags.Public | ...
 
-control.ForeColor = .Red;
-entity.InvoiceDate = .Now;
-ReadJsonDocument(.Parse(stream));
+control.ForeColor = .Red;          // Color.Red
+entity.InvoiceDate = .Now;         // DateTime.Now
+ReadJsonDocument(.Parse(stream));  // JsonDocument.Parse
 
 // Production (static members on Option<int>)
 Option<int> option = condition ? .None : .Some(42);
 
+// Production (nested derived types)
+CustomResult result = condition ? new .Success(42) : new .Error("message");
+
 // Consumption (nested derived types)
-return option switch
+return result switch
 {
-    .Some(var val) => val,
-    .None => defaultVal,
+    .Success(var val) => val,
+    .Error => defaultVal,
 };
 ```
 
@@ -42,20 +45,18 @@ DUs, existing nested type checks, BindingFlags
 
 ### Target typing through overloadable operators
 
-`~.None` should work.
-
-Non-bitwise operators: `new(1) + new(2)`
+TODO: flesh out. Consider unary (`~.None`), non-bitwise (`new(1) + new(2)`)
 
 ### Notes
 
-Same as with target-typed `new`, targeting a nullable value type should access members on the inner value type:
+As with target-typed `new`, targeting a nullable value type should access members on the inner value type:
 
 ```cs
-Point? p = new();
-Point? p = .Empty;
+Point? p = new();  // Equivalent to: new Point()
+Point? p = .Empty; // Equivalent to: Point.Empty
 ```
 
-Same as with target-typed `new`, overload resolution is not influenced by the presence of a target-typed static member expression. If overload resolution was influenced, it would become a breaking change to add any new static member to a type.
+As with target-typed `new`, overload resolution is not influenced by the presence of a target-typed static member expression. If overload resolution was influenced, it would become a breaking change to add any new static member to a type.
 
 ```cs
 M(.Empty); // Overload ambiguity error
@@ -66,7 +67,7 @@ void M(object p) { }
 
 ## Specification
 
-`identifier type_argument_list?` is consolidated into a standalone syntax, `member_binding`, and this new syntax is added as a production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar:
+`'.' identifier type_argument_list?` is consolidated into a standalone syntax, `member_binding`, and this new syntax is added as a production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar:
 
 ```diff
  member_access
@@ -109,22 +110,23 @@ void M(object p) { }
 
 As a primary expression, `member_binding` is only permitted in locations which provide a target type.
 
-Expand target-typing through:
+TODO: flesh out. Expand target-typing through overloadable operators and invocation expressions. Compare to how target-typing works for `??`.
 
-- overloadable operators: `.Public | .Instance`
-- invocation expressions: `.Create(...)`
+### Further spec simplification
 
-Compare to how target-typing works for `??`.
+TODO: Flesh out. Introduce `binding`, which is either of `member_binding`, or `element_binding` (with `'['`)
 
 ## Limitations
 
 One of the use cases this feature serves is production and consumption of values of nested derived types, for discriminated unions and other scenarios. But one consumption scenario that is left out of this improvement is `results.OfType<.Error>()`. It's not possible to target-type in this location because the `T` is not correlated with `results`. This problem would likely only be solvable in a general way with annotations that would need to ship with the `OfType` declaration.
 
+A new operator could solve this, such as `results.SelectNonNull(r => r as .Error?)`.
+
 ## Drawbacks
 
 ### Ambiguities
 
-There are a couple of ambiguities, with [parenthesized expressions](#ambiguity-with-parenthesized-expression) and [conditional expressions](#ambiguity-with-conditional-expression).
+There are a couple of ambiguities, with [parenthesized expressions](#ambiguity-with-parenthesized-expression) and [conditional expressions](#ambiguity-with-conditional-expression). See each link for details.
 
 ### Factory methods public in generic types
 
@@ -169,35 +171,37 @@ In cases where the union name is long, perhaps `SomeDiscriminatedUnion<Immutable
 
 ## Alternatives
 
-### Doing nothing
+### Alternative: doing nothing
 
 Generally speaking, production and consumption of discriminated union values will be fairly onerous as mentioned in the [Motivation](#motivation) section, e.g. having to write `is Option<ImmutableArray<Xyz>>.None` rather than `is .None`.
 
 #### Workaround: `using static`
 
-As a mitigation, `using static` directives can be applied as needed at the top of the file or globally. This allows syntax such as `GetMethod("Name", Public | Static)` today
+As a mitigation, `using static` directives can be applied as needed at the top of the file or globally. This allows syntax such as `GetMethod("Name", Public | Static)` today.
 
 This comes with a severe limitation, however, in that it doesn't help much with generic types. If you import `Option<int>`, you can write `is Some`, but only for `Option<int>` and not `Option<string>` or any other constructed type.
 
-Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. The new syntax solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
+Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. The proposed syntax for this feature solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
 
-Third, the `using static` workaround puts the names in scope in places where you might not want them. Imagine `var stoneType = Slate;`: Maybe you thought this was an enum value in your roofing domain, but accidentally picked up a web color instead.
+Third, the `using static` workaround is an imprecise hammer. It puts the names in scope in places where you might not want them. Imagine `var materialType = Slate;`: Maybe you thought this was an enum value in your roofing domain, but accidentally picked up a web color instead.
 
 The `using static` approach has also not found broad adoption over fully qualifying. There are very low hit counts on grep.app and github.com for `using static System.Reflection.BindingFlags`.
 
-### No sigil
+### Alternative: no sigil
 
-`GetMethod("Name", Public | Static)`
+Target-typed static member lookup benefits from the precision of the `.` sigil, but it does not require a sigil. `GetMethod("Name", Public | Static)` could be the chosen syntax. However, a sigil is strongly recommended for two reasons: user comprehension, and power.
 
-1. When target-typed names are added into the universe of available names to look up from, it's almost like tearing a wormhole in spacetime. It's a powerful event. The lookup rules change behavior. That's a good match for new syntax indicating "the rules are different here." You are traversing a wormhole to a different lookup universe. This is making the feature stand out, but not for the sake of standing out as a new feature. The places where the rules behave differently should be coupled with a visible, though still minimal, marker, or essential context is missing. If no such marker is in place, it will slow down understanding of code. Every identifier will need to be considered as to whether it is in a target-typing location and could be referring to something on that type. The presence of `.` makes reading much more efficient.
+The feature would be harder to understand without a sigil. When target-typed names are added into the universe of available names to look up from, it's almost like tearing a wormhole in spacetime. It's a powerful event. The lookup rules change behavior. That's a good match for new syntax indicating "the rules are different here." You are traversing a wormhole to a different lookup universe. This is making the feature stand out, but not for the sake of standing out as a new feature. The places where the rules behave differently should be coupled with a visible, though still minimal, marker, or essential context is missing. If no such marker is in place, it will slow down understanding of code. Every identifier will need to be considered as to whether it is in a target-typing location and could be referring to something on that type. The chance of collisions is expected to be high. The presence of `.` makes reading much more efficient.
 
-1. To avoid changes in meaning, this would have to prefer binding to other things in the current scope name, with target-typing as a fallback. This would result in unpleasant interruptions with no recourse other than typing out the full type name. These interruptions are expected to be often enough to hamper the success of the feature.
+The feature would become less powerful without a sigil. To avoid changes in meaning, this would have to prefer binding to other things in the current scope name, with target-typing as a fallback. This would result in unpleasant interruptions with no recourse other than typing out the full type name. These interruptions are expected to be frequent enough to hamper the success of the feature.
 
 ## Open questions
 
 ### Ambiguity with parenthesized expression
 
-This is valid grammar today, which fails in binding if `A` is a type and not a value. The new grammar we're adding would allow this to be parsed as a cast followed by a target-typed static member lookup. This new interpretation is consistent with `(A)new()` and `(A)default` working today, but it is not in the least useful. `A.B` is a simpler and clearer way to write the same thing.
+This is valid grammar today, which fails in binding if `A` is a type and not a value: `(A).B`.
+
+The new grammar we're adding would allow this to be parsed as a cast followed by a target-typed static member lookup. This new interpretation is consistent with `(A)new()` and `(A)default` working today, but it would not be practically useful. `A.B` is a simpler and clearer way to write the same thing.
 
 Should `(A).B` continue to fail, or be made to work the same as `A.B` when `A` is a type?
 
