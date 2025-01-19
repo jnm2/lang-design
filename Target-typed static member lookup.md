@@ -6,7 +6,7 @@ Champion issue: <TODO>
 
 This feature enables a type name to be omitted when it is the same as the target type.
 
-It paves the way for discriminated unions to benefit from expressing existing construction and consumption concepts, while also making consumption nicer today for manual type-based discriminated unions.
+This reduces construction and consumption verbosity for factory methods, nested derived types, enum values, constants, singletons, and other static members. By doing so, the way is also paved for discriminated unions to benefit from the same concise construction and consumption syntaxes.
 
 Examples:
 
@@ -36,7 +36,9 @@ DUs, existing nested type checks, BindingFlags
 
 ## Detailed design
 
-In a target-typed location, there is a new primary expression which starts with `.` and is followed by an identifier.
+1. In target-typed locations, a new primary expression may be used which starts with `.` and is followed by an identifier.
+
+2. Target-typed locations are expanded to include operands of overloadable operators, and expressions that are invoked.
 
 ### Target typing through overloadable operators
 
@@ -44,7 +46,7 @@ In a target-typed location, there is a new primary expression which starts with 
 
 Non-bitwise operators: `new(1) + new(2)`
 
-### Misc
+### Notes
 
 Same as with target-typed `new`, targeting a nullable value type should access members on the inner value type:
 
@@ -64,7 +66,7 @@ void M(object p) { }
 
 ## Specification
 
-`identifier type_argument_list?` is consolidated into a standalone syntax, `member_binding`, and this new syntax is then added as a production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar:
+`identifier type_argument_list?` is consolidated into a standalone syntax, `member_binding`, and this new syntax is added as a production of the [§12.8.7 Member access](https://github.com/dotnet/csharpstandard/blob/draft-v8/standard/expressions.md#1287-member-access) grammar:
 
 ```diff
  member_access
@@ -114,9 +116,21 @@ Expand target-typing through:
 
 Compare to how target-typing works for `??`.
 
+## Limitations
+
+One of the use cases this feature serves is production and consumption of values of nested derived types, for discriminated unions and other scenarios. But one consumption scenario that is left out of this improvement is `results.OfType<.Error>()`. It's not possible to target-type in this location because the `T` is not correlated with `results`. This problem would likely only be solvable in a general way with annotations that would need to ship with the `OfType` declaration.
+
 ## Drawbacks
 
+### Ambiguities
+
 There are a couple of ambiguities, with [parenthesized expressions](#ambiguity-with-parenthesized-expression) and [conditional expressions](#ambiguity-with-conditional-expression).
+
+### Factory methods public in generic types
+
+The availability of this feature will flip a current framework design guideline on its head. Currently, the design guideline is to declare a static nongeneric class with a generic helper method so that inference is possible: `ImmutableArray.Create<T>`, not `ImmutableArray<T>.Create`. When people declare Option types, it's similarly `Option.Some<T>`, not `Option<T>.Some`.
+
+When target-typing `Option<int> opt = .Some(42)`, what will be called is a static method on the `Option<T>` type rather than on a static helper `Option` type. This will require library authors to provide public factory methods in both places, if they want to cater to both target-typed construction (`.Some(42)`) and to non-target-typed inference (`var opt = Option.Some(42);`).
 
 ## Anti-drawbacks
 
@@ -134,11 +148,42 @@ This doesn't seem to be a popular request among the language team members who ha
 
 ## Expansions
 
-To match the production and consumption sides even better, constructors may
+To match the production and consumption sides even better, it could be very desirable to enable the `new` operator to look up nested derived types in the same way:
+
+```cs
+new .Case1(arg1, arg2)
+```
+
+This would continue to be target-typed static member access (since nested types are members of their containing type), which is distinct from target-typed `new` since a definite type is provided to the `new` operator.
+
+If target-typed static member access is not allowed in this location, the downside is that the production and consumption syntaxes will not have parity.
+
+```cs
+du switch
+{
+    .Case1(var arg1, var arg2) => ...
+}
+```
+
+In cases where the union name is long, perhaps `SomeDiscriminatedUnion<ImmutableArray<int>>`, this will really stand out.
 
 ## Alternatives
 
 ### Doing nothing
+
+Generally speaking, production and consumption of discriminated union values will be fairly onerous as mentioned in the [Motivation](#motivation) section, e.g. having to write `is Option<ImmutableArray<Xyz>>.None` rather than `is .None`.
+
+#### Workaround: `using static`
+
+As a mitigation, `using static` directives can be applied as needed at the top of the file or globally. This allows syntax such as `GetMethod("Name", Public | Static)` today
+
+This comes with a severe limitation, however, in that it doesn't help much with generic types. If you import `Option<int>`, you can write `is Some`, but only for `Option<int>` and not `Option<string>` or any other constructed type.
+
+Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. The new syntax solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
+
+Third, the `using static` workaround puts the names in scope in places where you might not want them. Imagine `var stoneType = Slate;`: Maybe you thought this was an enum value in your roofing domain, but accidentally picked up a web color instead.
+
+The `using static` approach has also not found broad adoption over fully qualifying. There are very low hit counts on grep.app and github.com for `using static System.Reflection.BindingFlags`.
 
 ### No sigil
 
