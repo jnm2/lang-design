@@ -128,7 +128,7 @@ There are a couple of ambiguities, with [parenthesized expressions](#ambiguity-w
 
 ### Factory methods public in generic types
 
-The availability of this feature will flip a current framework design guideline on its head. Currently, the design guideline is to declare a static nongeneric class with a generic helper method so that inference is possible: `ImmutableArray.Create<T>`, not `ImmutableArray<T>.Create`. When people declare Option types, it's similarly `Option.Some<T>`, not `Option<T>.Some`.
+The availability of this feature will flip a current framework design guideline on its head, namely [CA1000: Do not declare static members on generic types](https://learn.microsoft.com/en-us/dotnet/fundamentals/code-analysis/quality-rules/ca1000). Currently, the design guideline is to declare a static nongeneric class with a generic helper method so that inference is possible: `ImmutableArray.Create<T>`, not `ImmutableArray<T>.Create`. When people declare Option types, it's similarly `Option.Some<T>`, not `Option<T>.Some`.
 
 When target-typing `Option<int> opt = .Some(42)`, what will be called is a static method on the `Option<T>` type rather than on a static helper `Option` type. This will require library authors to provide public factory methods in both places, if they want to cater to both target-typed construction (`.Some(42)`) and to non-target-typed inference (`var opt = Option.Some(42);`).
 
