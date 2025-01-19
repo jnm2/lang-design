@@ -14,7 +14,7 @@ Examples:
 type.GetMethod("Name", .Public | .Instance | .DeclaredOnly); // BindingFlags.Public | ...
 
 control.ForeColor = .Red;          // Color.Red
-entity.InvoiceDate = .Now;         // DateTime.Now
+entity.InvoiceDate = .Today;       // DateTime.Today
 ReadJsonDocument(.Parse(stream));  // JsonDocument.Parse
 
 // Production (static members on Option<int>)
@@ -33,9 +33,7 @@ return result switch
 
 ## Motivation
 
-LDM prior interest <https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-09-26.md#discriminated-unions>
-
-DUs, existing nested type checks, BindingFlags
+TODO: flesh out. LDM prior interest <https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-09-26.md#discriminated-unions>
 
 ## Detailed design
 
@@ -189,11 +187,15 @@ The `using static` approach has also not found broad adoption over fully qualify
 
 ### Alternative: no sigil
 
-Target-typed static member lookup benefits from the precision of the `.` sigil, but it does not require a sigil. `GetMethod("Name", Public | Static)` could be the chosen syntax. However, a sigil is strongly recommended for two reasons: user comprehension, and power.
+The target-typed static member lookup feature benefits from the precision of the `.` sigil, but it does not require a sigil. `GetMethod("Name", Public | Static)` could be the chosen syntax. However, a sigil is strongly recommended for two reasons: user comprehension, and power.
 
-The feature would be harder to understand without a sigil. When target-typed names are added into the universe of available names to look up from, it's almost like tearing a wormhole in spacetime. It's a powerful event. The lookup rules change behavior. That's a good match for new syntax indicating "the rules are different here." You are traversing a wormhole to a different lookup universe. This is making the feature stand out, but not for the sake of standing out as a new feature. The places where the rules behave differently should be coupled with a visible, though still minimal, marker, or essential context is missing. If no such marker is in place, it will slow down understanding of code. Every identifier will need to be considered as to whether it is in a target-typing location and could be referring to something on that type. The chance of collisions is expected to be high. The presence of `.` makes reading much more efficient.
+Firstly, the feature would be ***harder to understand*** without a sigil. Without a sigil, locations that are target-typeable allow you to silently stumble through a wormhole into a universe with extra names in it to look up. This is a powerful event with opportunity for confusion. That's a good match for new syntax indicating "I want to access the names on the other side of this wormhole."
 
-The feature would become less powerful without a sigil. To avoid changes in meaning, this would have to prefer binding to other things in the current scope name, with target-typing as a fallback. This would result in unpleasant interruptions with no recourse other than typing out the full type name. These interruptions are expected to be frequent enough to hamper the success of the feature.
+The presence of `.` makes reading much more efficient. If no such marker is in place, it will slow down understanding of code. Every identifier will need to be considered as to whether it is in a target-typing location and could be referring to something on that type. The chance of collisions is expected to be high. It can be difficult from context to know if target-typing is in play in a given scenario. Syntaxes such as `null` or `new()` make it clear that a target type is affecting the meaning of the expression, but a plain identifier on its own does not make this clear. It's hard to tell which locations are target-typeable and which are not. It can require a lot of backtracking while reading, and in some cases you need to know whether there are multiple overloads with varying types at this position.
+
+A sigil thus provides essential context. It asserts that the location is target-typeable, and furthermore that the name is coming from the target type. Most importantly of all, the author's intention of target-typed lookup is preserved even if an overload is added which causes target-typing to fail. Without the sigil, it would not be clear whether the original author was trying to look up something in scope, or was trying to access something off the target type. The sigil prevents spooky action at a distance which changes the fundamental meaning of the expression.
+
+Secondly, the feature would become ***less powerful*** without a sigil. To avoid changes in meaning, this would have to prefer binding to other things in the current scope name, with target-typing as a fallback. This would result in unpleasant interruptions with no recourse other than typing out the full type name. These interruptions are expected to be frequent enough to hamper the success of the feature.
 
 ## Open questions
 
