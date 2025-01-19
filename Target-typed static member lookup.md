@@ -144,7 +144,7 @@ with (expr)
 }
 ```
 
-This doesn't seem to be a popular request among the language team members who have commented on this. If we go ahead with the proposed target-typing for `.Name` syntax, this seals the fate of the requested `with` statement syntax shown here.
+This doesn't seem to be a popular request among the language team members who have commented on it. If we go ahead with the proposed target-typing for `.Name` syntax, this seals the fate of the requested `with` statement syntax shown here.
 
 ## Expansions
 
@@ -187,7 +187,30 @@ The `using static` approach has also not found broad adoption over fully qualify
 
 ### Alternative: no sigil
 
-The target-typed static member lookup feature benefits from the precision of the `.` sigil, but it does not require a sigil. `GetMethod("Name", Public | Static)` could be the chosen syntax. However, a sigil is strongly recommended for two reasons: user comprehension, and power.
+The target-typed static member lookup feature benefits from the precision of the `.` sigil, but it does not require a sigil. Here's how the feature would look without a sigil:
+
+```cs
+type.GetMethod("Name", Public | Instance | DeclaredOnly); // BindingFlags.Public | ...
+
+control.ForeColor = Red;          // Color.Red
+entity.InvoiceDate = Today;       // DateTime.Today
+ReadJsonDocument(Parse(stream));  // JsonDocument.Parse
+
+// Production (static members on Option<int>)
+Option<int> option = condition ? None : Some(42);
+
+// Production (nested derived types)
+CustomResult result = condition ? new Success(42) : new Error("message");
+
+// Consumption (nested derived types)
+return result switch
+{
+    Success(var val) => val,
+    Error => defaultVal,
+};
+```
+
+A sigil is strongly recommended for two reasons: user comprehension, and power.
 
 Firstly, the feature would be ***harder to understand*** without a sigil. Without a sigil, locations that are target-typeable allow you to silently stumble through a wormhole into a universe with extra names in it to look up. This is a powerful event with opportunity for confusion. That's a good match for new syntax indicating "I want to access the names on the other side of this wormhole."
 
