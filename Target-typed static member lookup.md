@@ -68,13 +68,18 @@ There has also been steady interest in this feature in terms of community discus
 
 ## Detailed design
 
-1. In target-typed locations, a new primary expression may be used which starts with `.` and is followed by an identifier.
+There is a new primary expression, _target-typed member binding expression_, which starts with `.` and is followed by an identifier.
 
-2. Target-typed locations are expanded to include operands of overloadable operators, and expressions that are invoked.
+If this expression appears in a location where there is no target type, a compiler error is produced. Otherwise, this expression is bound in the same way as though the identifier had been qualified with the target type.
 
-### Target typing through overloadable operators
+TODO: how is target type determined?
 
-TODO: flesh out. Consider unary (`~.None`), non-bitwise (`new(1) + new(2)`)
+- Patterns: is this a primary expression? How to identify what is being matched against?
+  - is/switch directly, nested pattern
+- Look ahead to `new` while unifying with patterns? Make this a `type_name`?
+- Invocations: conversions can't help here, but we do need to see through the tree.
+
+TODO: Consider unary (`~.None`) and non-bitwise (`new(1) + new(2)`) operators
 
 ### Notes
 
@@ -137,9 +142,7 @@ void M(object p) { }
      ;
 ```
 
-As a primary expression, `member_binding` is only permitted in locations which provide a target type.
-
-TODO: flesh out. Expand target-typing through overloadable operators and invocation expressions. Compare to how target-typing works for `??`.
+TODO: flesh out.
 
 ### Further spec simplification
 
