@@ -6,9 +6,7 @@ Champion issue: <TODO>
 
 This feature enables a type name to be omitted from static member access when it is the same as the target type.
 
-This reduces construction and consumption verbosity for factory methods, nested derived types, enum values, constants, singletons, and other static members. By doing so, the way is also paved for discriminated unions to benefit from the same concise construction and consumption syntaxes.
-
-Examples:
+This reduces construction and consumption verbosity for factory methods, nested derived types, enum values, constants, singletons, and other static members. In doing so, the way is also paved for discriminated unions to benefit from the same concise construction and consumption syntaxes.
 
 ```cs
 type.GetMethod("Name", .Public | .Instance | .DeclaredOnly); // BindingFlags.Public | ...
@@ -33,7 +31,40 @@ return result switch
 
 ## Motivation
 
-TODO: flesh out. LDM prior interest <https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-09-26.md#discriminated-unions>
+Repeating a full type name before each `.` can be redundant. This happens often enough that it would make sense to put the choice in developers' hands to avoid the redundancy. Today, there's no scalable workaround for the verbosity in the following example:
+
+```cs
+public void M(Result<ImmutableArray<int>, string> result)
+{
+    switch (result)
+    {
+        case Result<ImmutableArray<int>, string>.Success(var array): ...
+        case Result<ImmutableArray<int>, string>.Error(var message): ...
+    }
+}
+```
+
+This feature brings a dramatic quality-of-life improvement:
+
+```cs
+public void M(Result<ImmutableArray<int>, string> result)
+{
+    switch (result)
+    {
+        case .Success(var array): ...
+        case .Error(var message): ...
+    }
+}
+```
+
+The implications are clear for discriminated unions. Creation and consumption of   class-based discriminated unions will likely involve nested derived types. When creating or consuming nested derived types, you would be able to just type `.` and receive exactly the relevant list of types grouped together by the nesting—perfect for selecting a case for a discriminated union. It would be hard to stomach either reading or writing long type names before each `.`.
+
+This proposal furthers the language design team's interest in pursuing this space, separately from discriminated unions, but also in anticipation of discriminated unions. Quoting [LDM notes from Sept 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-09-26.md#discriminated-unions):
+
+> - [#2926](https://github.com/dotnet/csharplang/issues/2926) - Target-typed name lookup
+>   - We don't want to gate this on DUs, but it will be highly complementary
+
+There has also been steady interest in this feature in terms of community discussions and upvotes.
 
 ## Detailed design
 
@@ -179,7 +210,7 @@ As a mitigation, `using static` directives can be applied as needed at the top o
 
 This comes with a severe limitation, however, in that it doesn't help much with generic types. If you import `Option<int>`, you can write `is Some`, but only for `Option<int>` and not `Option<string>` or any other constructed type.
 
-Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. The proposed syntax for this feature solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
+Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. For example, `case IBinaryOperation { OperatorKind: Equals }` binds to `object.Equals` and fails. The proposed syntax for this feature solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
 
 Third, the `using static` workaround is an imprecise hammer. It puts the names in scope in places where you might not want them. Imagine `var materialType = Slate;`: Maybe you thought this was an enum value in your roofing domain, but accidentally picked up a web color instead.
 
