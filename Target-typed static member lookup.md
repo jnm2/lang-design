@@ -57,7 +57,7 @@ public void M(Result<ImmutableArray<int>, string> result)
 }
 ```
 
-The implications are clear for discriminated unions. Creation and consumption of   class-based discriminated unions will likely involve nested derived types. When creating or consuming nested derived types, you would be able to just type `.` and receive exactly the relevant list of types grouped together by the nesting—perfect for selecting a case for a discriminated union. It would be hard to stomach either reading or writing long type names before each `.`.
+The implications are clear for discriminated unions. Creation and consumption of class-based discriminated unions will likely involve nested derived types. When creating or consuming nested derived types, you would be able to just type `.` and receive exactly the relevant list of types grouped together by the nesting—perfect for selecting a case for a discriminated union. It would be hard to stomach either reading or writing long type names before each `.`.
 
 This proposal furthers the language design team's interest in pursuing this space, separately from discriminated unions, but also in anticipation of discriminated unions. Quoting [LDM notes from Sept 2022](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-09-26.md#discriminated-unions):
 
@@ -68,18 +68,92 @@ There has also been steady interest in this feature in terms of community discus
 
 ## Detailed design
 
-There is a new primary expression, _target-typed member binding expression_, which starts with `.` and is followed by an identifier.
+### Basic expression
+
+There is a new primary expression, _target-typed member binding expression_, which starts with `.` and is followed by an identifier: `.Xyz`. What makes it a target-typed member binding, rather than some other kind of member binding, is its location as a primary expression.
 
 If this expression appears in a location where there is no target type, a compiler error is produced. Otherwise, this expression is bound in the same way as though the identifier had been qualified with the target type.
 
-TODO: how is target type determined?
+To determine whether there is a target type and what that target type is, the language adds an implicit _target-typed member binding conversion_, from  _target-typed member binding expression_ to any type. The conversion succeeds regardless of the target type. This allows errors to be handled in binding after the conversion succeeds, such as not finding an accessible or applicable member with the given identifier, or such as the expression evaluating to an incompatible type. For example:
 
-- Patterns: is this a primary expression? How to identify what is being matched against?
-  - is/switch directly, nested pattern
-- Look ahead to `new` while unifying with patterns? Make this a `type_name`?
-- Invocations: conversions can't help here, but we do need to see through the tree.
+```cs
+SomeTarget a = .A; // Same as SomeTarget.A, succeeds
+SomeTarget b = .B; // Same as SomeTarget.B, fails with accessibility error
+SomeTarget c = .C; // Same as SomeTarget.C, fails trying to assign `int` to `SomeTarget`
+SomeTarget d = .D; // Same as SomeTarget.D, succeeds via implicit conversion
+SomeTarget e = .E; // Same as SomeTarget.E, fails to locate a static member
+// etc
 
-TODO: Consider unary (`~.None`) and non-bitwise (`new(1) + new(2)`) operators
+class SomeTarget
+{
+    public static SomeTarget A;
+    private static SomeTarget B;
+    public static int C;
+    public static string D;
+    public SomeTarget E;
+
+    public static implicit operator SomeTarget(string d) => ...
+}
+```
+
+This is sufficient to allow this new construct to be combined with constructs which allow target-typing. For example:
+
+```cs
+SomeTarget a = condition ? .A : .D;
+```
+
+If the resulting bound member is a constant, it may be used in locations which require constants, no differently than if it was qualified:
+
+```cs
+const BindingFlags f = .Public;
+```
+
+### Basic pattern matching
+
+TODO (consider nested patterns)
+
+### Target-typing with overloadable operators
+
+A core scenario for this proposal is using bitwise operators on flags enums. To enable this without adding arbitrary limitations, this proposal enables target-typing on the operands of overloadable operators.
+
+```cs
+GetMethod("Name", .Public | .Static)
+MyFlags f = ~.None;
+if ((myFlags & ~.Mask) != 0) { ... }
+```
+
+Other target-typed expressions besides `.Xyz` will be able to benefit from this, such as `null`, `default` and `[]`. One exception to this target-typed `new`, which explicitly states that it may not appear as an operand of a unary or binary operator. If desired, we could lift this restriction so that it is not the odd one out:
+
+```cs
+Point p = origin + new(50, 100);
+```
+
+This is done by adding two new conversions, _unary operator target-typing conversion_ and _binary operator target-typing conversion_.
+
+For a unary operator expression such as `~e`, we define a new implicit _unary operator target-typing conversion_ that permits an implicit conversion from the unary operator expression to any type `T` for which there is a conversion-from-expression from `e` to `T`.
+
+For a binary operator expression such as `e1 | e2`, we define a new implicit _binary operator target-typing conversion_ that permits an implicit conversion from the binary operator expression to any type `T` for which there is a conversion-from-expression from `e1` to `T` and/or from `e2` to `T`.
+
+TODO: How to make sure this doesn't take precedence over existing meanings? If we add "when `e` has no natural type," what happens when that expression gains a natural type in a future language version?
+
+TODO: Target-typing from one operand to another is helpful in the following scenario:
+
+```cs
+M(BindingFlags.Public | .Static | .DeclaredOnly); // Succeeds
+
+M(.Public | .Static | .DeclaredOnly); // ERROR: overload resolution fails
+
+void M(BindingFlags p) => ...
+void M(string p) => ...
+```
+
+### Target-typing with invocations
+
+TODO
+
+### Target-typing with `new`
+
+TODO: See if this is closer to invocations or pattern type names
 
 ### Notes
 
@@ -213,7 +287,7 @@ As a mitigation, `using static` directives can be applied as needed at the top o
 
 This comes with a severe limitation, however, in that it doesn't help much with generic types. If you import `Option<int>`, you can write `is Some`, but only for `Option<int>` and not `Option<string>` or any other constructed type.
 
-Secondly, the `using static` workaround suffers from lack of precedence. Anything member in scope with the same name takes precedence over the member you're trying to access. For example, `case IBinaryOperation { OperatorKind: Equals }` binds to `object.Equals` and fails. The proposed syntax for this feature solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
+Secondly, the `using static` workaround suffers from lack of precedence. Anything in scope with the same name takes precedence over the member you're trying to access. For example, `case IBinaryOperation { OperatorKind: Equals }` binds to `object.Equals` and fails. The proposed syntax for this feature solves this with the leading `.`, which unambiguously shows that the identifier that follows comes from the target type, and not from the current scope.
 
 Third, the `using static` workaround is an imprecise hammer. It puts the names in scope in places where you might not want them. Imagine `var materialType = Slate;`: Maybe you thought this was an enum value in your roofing domain, but accidentally picked up a web color instead.
 
