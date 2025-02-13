@@ -110,9 +110,28 @@ If the resulting bound member is a constant, it may be used in locations which r
 const BindingFlags f = .Public;
 ```
 
-### Basic pattern matching
+### Pattern matching
 
-TODO (consider nested patterns)
+A core scenario for this proposal is to be able to match nested derived types without repeating the containing type name, which may be long especially with generics.
+
+```cs
+public void M(Result<ImmutableArray<int>, string> result)
+{
+    switch (result)
+    {
+        case .Success(var array): ...
+        case .Error(var message): ...
+    }
+}
+```
+
+This includes nested patterns:
+
+```cs
+expr is { A: .Some(0) or .None }
+```
+
+Any type expression in a type pattern may begin with a `.`. It is bound as though it was qualified with the type of the expression or pattern being matched against. If such qualified access is permitted, the target-typed type pattern is permitted. If such qualified access is not permitted, the target-typed type pattern fails with the same message.
 
 ### Target-typing with overloadable operators
 
@@ -163,10 +182,6 @@ To enable target-typing for the invoked expression within an invocation expressi
 For an invocation expression such as `e(...)` where the invoked expression `e` is a _target-typed member binding expression_, we define a new implicit _invocation target-typing conversion_ that permits an implicit conversion from the invocation expression to any type `T` for which there is a _target-typed member binding conversion_ from `e` to `Tₑ`.
 
 Even though the conversion always succeeds when the invoked expression `e` is a  _target-typed member binding expression_, further errors may occur if the invocation expression cannot be bound for any of the same reasons as though the _target-typed member binding expression_ was a non-target-typed expression, qualified as a member of `T`. For instance, the member might not be invocable, or might return a type other than `T`.
-
-### Target-typing with `new`
-
-TODO: See if this is closer to invocations or pattern type names
 
 ### Notes
 
@@ -229,7 +244,7 @@ void M(object p) { }
      ;
 ```
 
-TODO: flesh out.
+TODO: patterns
 
 ### Further spec simplification
 
