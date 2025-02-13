@@ -74,7 +74,7 @@ There is a new primary expression, _target-typed member binding expression_, whi
 
 If this expression appears in a location where there is no target type, a compiler error is produced. Otherwise, this expression is bound in the same way as though the identifier had been qualified with the target type.
 
-To determine whether there is a target type and what that target type is, the language adds an implicit _target-typed member binding conversion_, from  _target-typed member binding expression_ to any type. The conversion succeeds regardless of the target type. This allows errors to be handled in binding after the conversion succeeds, such as not finding an accessible or applicable member with the given identifier, or such as the expression evaluating to an incompatible type. For example:
+To determine whether there is a target type and what that target type is, the language adds an implicit _target-typed member binding conversion_, from _target-typed member binding expression_ to any type. The conversion succeeds regardless of the target type. This allows errors to be handled in binding after the conversion succeeds, such as not finding an accessible or applicable member with the given identifier, or such as the expression evaluating to an incompatible type. For example:
 
 ```cs
 SomeTarget a = .A; // Same as SomeTarget.A, succeeds
@@ -95,6 +95,8 @@ class SomeTarget
     public static implicit operator SomeTarget(string d) => ...
 }
 ```
+
+The fact that the conversion succeeds regardless of target type also enables [target-typing with invocations](#target-typing-with-invocations).
 
 This is sufficient to allow this new construct to be combined with constructs which allow target-typing. For example:
 
@@ -128,7 +130,7 @@ Other target-typed expressions besides `.Xyz` will be able to benefit from this,
 Point p = origin + new(50, 100);
 ```
 
-This is done by adding three new conversions: _unary operator target-typing conversion_, _binary operator target-typing conversion_, and _binary cross-operand target-typing conversion_. These conversions are not considered better than any existing conversions.
+This is done by adding three new conversions: _unary operator target-typing conversion_, _binary operator target-typing conversion_, and _binary cross-operand target-typing conversion_. All existing conversions are better than these new conversions.
 
 For a unary operator expression such as `~e`, we define a new implicit _unary operator target-typing conversion_ that permits an implicit conversion from the unary operator expression to any type `T` for which there is a conversion-from-expression from `e` to `T`.
 
@@ -149,7 +151,18 @@ void M(string p) => ...
 
 ### Target-typing with invocations
 
-TODO
+A core scenario for this proposal is calling factory methods, providing symmetry between production and consumption of values.
+
+```cs
+SomeResult = .Error("Message");
+Option<int> M() => .Some(42);
+```
+
+To enable target-typing for the invoked expression within an invocation expression, a new conversion is added, _invocation target-typing conversion_.  All existing conversions are better than this new conversion.
+
+For an invocation expression such as `e(...)` where the invoked expression `e` is a _target-typed member binding expression_, we define a new implicit _invocation target-typing conversion_ that permits an implicit conversion from the invocation expression to any type `T` for which there is a _target-typed member binding conversion_ from `e` to `Tₑ`.
+
+Even though the conversion always succeeds when the invoked expression `e` is a  _target-typed member binding expression_, further errors may occur if the invocation expression cannot be bound for any of the same reasons as though the _target-typed member binding expression_ was a non-target-typed expression, qualified as a member of `T`. For instance, the member might not be invocable, or might return a type other than `T`.
 
 ### Target-typing with `new`
 
