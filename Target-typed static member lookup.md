@@ -128,15 +128,15 @@ Other target-typed expressions besides `.Xyz` will be able to benefit from this,
 Point p = origin + new(50, 100);
 ```
 
-This is done by adding two new conversions, _unary operator target-typing conversion_ and _binary operator target-typing conversion_.
+This is done by adding three new conversions: _unary operator target-typing conversion_, _binary operator target-typing conversion_, and _binary cross-operand target-typing conversion_. These conversions are not considered better than any existing conversions.
 
 For a unary operator expression such as `~e`, we define a new implicit _unary operator target-typing conversion_ that permits an implicit conversion from the unary operator expression to any type `T` for which there is a conversion-from-expression from `e` to `T`.
 
 For a binary operator expression such as `e1 | e2`, we define a new implicit _binary operator target-typing conversion_ that permits an implicit conversion from the binary operator expression to any type `T` for which there is a conversion-from-expression from `e1` to `T` and/or from `e2` to `T`.
 
-TODO: How to make sure this doesn't take precedence over existing meanings? If we add "when `e` has no natural type," what happens when that expression gains a natural type in a future language version?
+For _either operand_ of a binary operator expression such as `e1 | e2`, if one expression has a type `T` and the other expression does not have a type, and there is a conversion-from-expression from the typeless operand expression to `T`, we define a new implicit _binary cross-operand target-typing conversion_ that permits an implicit conversion from the typeless operand expression to `T`.
 
-TODO: Target-typing from one operand to another is helpful in the following scenario:
+Target-typing from one operand to another is helpful in the following scenario:
 
 ```cs
 M(BindingFlags.Public | .Static | .DeclaredOnly); // Succeeds
