@@ -20,9 +20,17 @@ No new syntax is involved in this proposal.
 
 ### Design rationale
 
+#### Multiple enumeration
+
 Enumerables cannot be assumed to represent a realized collection. An enumerable may represent an in-memory collection or a generated sequence, but it may also represent a remote query or an iterator method. An enumerable may return different results on each enumeration, and it may have side effects. Multiple enumeration is considered both a performance smell and a correctness issue. The .NET SDK and other popular tools have versions of warnings for multiple enumeration of the same enumerable.
 
-Because of this, any slice subpattern that matches against items within the slice  would have to buffer the sliced items in the general case (such as `..var slice`). It would not be able to expose a Skip/Take-style enumerable composed over the original enumerable, because any consumption of the resulting sliced enumerable would be a second enumeration in addition to the first enumeration performed by the pattern match.
+Because of this, any slice subpattern that matches against items within the slice  would have to buffer the sliced items in the general case (such as `..var slice`). The subpattern would not be able to expose a Skip/Take-style enumerable composed over the original enumerable, because any consumption of the resulting sliced enumerable would be a second enumeration in addition to the first enumeration performed by the pattern match.
+
+Countability and indexability are each signals that the enumerable is a realized collection and can be safely enumerated multiple times. However, it could be undesirable for Skip/Take-style composition to be employed for _indexable but not countable_ enumerables and _countable but not indexable_ enumerables, while buffering is employed for other enumerables. There are performance implications to buffering, and there's an aliasing difference: with buffering, the slice does not change when the original collection is mutated. With Skip/Take-style enumerable composition, the slice _does_ change if enumerated after the original collection is mutated. This difference in behavior would be observable and could make the feature seem unpredictable.
+
+Finally, with Skip/Take-style composition over the original enumerable when the enumerable is a realized collection at runtime, there are complications if the collection changes size so that the slice is also forced to change size, or different items come into view.
+
+TODO: what if the enumerable declares its own slicer?
 
 This proposal does not enable slice subpatterns because of the near certainty of needing to buffer the entire enumerable into memory. The workaround for those who want it would be to take on the buffering explicitly in their code by matching against `enumerable.ToList()` or `enumerable.ToArray().AsSpan()` or similar, where slice subpatterns are already available for use. Buffering the entire enumerable into memory can be an expensive operation, and doing this operation silently during pattern matching could be a pitfall.
 
