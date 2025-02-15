@@ -1,6 +1,6 @@
 # Target-typed static member lookup
 
-Champion issue: <TODO>
+Champion issue: <https://github.com/dotnet/csharplang/issues/9138>
 
 ## Summary
 
