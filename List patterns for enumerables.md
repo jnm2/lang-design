@@ -12,6 +12,8 @@ The pattern will be evaluated without multiple enumeration. The only slice patte
 
 ## Detailed design
 
+It is an import
+
 Any list pattern will be supported for an enumerable type (a type supported by `foreach`) if the same pattern would be supported by a type that is countable and indexable, but not sliceable. Thus, for the enumerable types gaining support through this proposal, it will be an error for a slice pattern to contain a subpattern. It is an existing requirement that the type additionally be sliceable in order for the slice pattern to have a subpattern; that requirement is not changing in this proposal.
 
 No new syntax is involved in this proposal.
@@ -39,3 +41,23 @@ The pattern will be evaluated using the enumerator. The enumerator will be obtai
 - The enumerator is disposed, if applicable. This step is not skipped when evaluation ends.
 
 If the patterns following the slice pattern consist only of patterns which can match without reading an input value, such as discards or redundant patterns, then an implementation may omit the buffer and the `Current` calls. Rather than enumerating all remaining items, enumeration is only done once for each pattern following the slice pattern. For each, `MoveNext()` is called. If it returns `false`, evaluation ends and the list pattern is not matched. If it returns `true` once for each remaining pattern, evaluation ends and the list pattern is matched.
+
+## Answered questions
+
+### Allowing slicing on `IEnumerable` types
+
+On `IEnumerable` types, should we allow `..var x` where `x` is an `IEnumerable` that the compiler implements, similar to collection expressions targeting `IEnumerable<T>`?
+
+#### Answer
+
+No, we think it will be a better experience if we only allow sub-patterns under a slice if the type is actually sliceable. ([LDM 2021-04-12](https://github.com/dotnet/csharplang/blob/main/meetings/2021/LDM-2021-04-12.md#list-patterns))
+
+## Open questions
+
+### Optimizing statically countable enumerables
+
+Should the compiler be allowed to optimize patterns such as `[1, _, _]` by enumerating only one item, and assuming that `Length`/`Count` is well-behaved and can be checked rather than enumerating for the rest of the pattern?
+
+### Optimizing runtime-countable enumerables
+
+Similar to the previous question, should the compiler be allowed to use `TryGetNonEnumeratedCount` to avoid full enumeration for patterns such as `[1, _, _]`?
