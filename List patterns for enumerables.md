@@ -6,7 +6,7 @@ Champion issue: <>
 
 Extends list patterns to be able to be used with enumerables that are not countable or indexable. `items.Where(...) is [var singleItem]`, or `is []`, or `is [p1, .., p2]`.
 
-The pattern will be evaluated without multiple enumeration. The only slice pattern supported by this proposal is the discarding slice pattern, where `..` is not followed by another pattern referring to the slice.
+The pattern will be evaluated without multiple enumeration. The slice pattern `..` is supported, but only without a subpattern.
 
 ## Motivation
 
@@ -14,25 +14,27 @@ The pattern will be evaluated without multiple enumeration. The only slice patte
 
 Any list pattern will be supported for an enumerable type (a type supported by `foreach`) if the same pattern would be supported by a type that is countable and indexable, but not sliceable. Thus, for the enumerable types gaining support through this proposal, it will be an error for a slice pattern to contain a subpattern. It is an existing requirement that the type additionally be sliceable in order for the slice pattern to have a subpattern; that requirement is not changing in this proposal.
 
-Async enumerables are not supported. So far in the language, consumption of async enumerables requires the `await` keyword, highlighting where execution is suspended.
+Async enumerables are not supported. So far in the language, consumption of async enumerables requires the `await` keyword which highlights the point where execution may be suspended.
 
 No new syntax is involved in this proposal.
 
 ### Design rationale
 
-#### Multiple enumeration
+#### No multiple enumeration
 
-Enumerables cannot be assumed to represent a realized collection. An enumerable may represent an in-memory collection or a generated sequence, but it may also represent a remote query or an iterator method. An enumerable may return different results on each enumeration, and it may have side effects. Multiple enumeration is considered both a performance smell and a correctness issue. The .NET SDK and other popular tools have versions of warnings for multiple enumeration of the same enumerable.
+Enumerables cannot be assumed to represent a materialized collection. An enumerable may represent an in-memory collection or a generated sequence, but it may also represent a remote query or an iterator method. As such, an enumerable may return different results on each enumeration, and enumeration may have side effects. Multiple enumeration is considered both a performance smell and a correctness issue in cases where the enumerable is not known to be a materialized collection or a trivially generated, guaranteed-stable sequence. The .NET SDK and other popular tools produce warnings for multiple enumeration of the same enumerable.
 
-Because of this, any slice subpattern that matches against items within the slice  would have to buffer the sliced items in the general case (such as `..var slice`). The subpattern would not be able to expose a Skip/Take-style enumerable composed over the original enumerable, because any consumption of the resulting sliced enumerable would be a second enumeration in addition to the first enumeration performed by the pattern match.
+#### Slice subpatterns would require buffering
 
-Countability and indexability are each signals that the enumerable is a realized collection and can be safely enumerated multiple times. However, it could be undesirable for Skip/Take-style composition to be employed for _indexable but not countable_ enumerables and _countable but not indexable_ enumerables, while buffering is employed for other enumerables. There are performance implications to buffering, and there's an aliasing difference: with buffering, the slice does not change when the original collection is mutated. With Skip/Take-style enumerable composition, the slice _does_ change if enumerated after the original collection is mutated. This difference in behavior would be observable and could make the feature seem unpredictable.
+With multiple enumeration off the table, then if slice subpatterns (for example `..var slice`) were permitted, they would have to buffer the sliced items in general. The subpattern would not be able to expose a Skip/Take-style enumerable composed over the original enumerable, because any consumption of the resulting sliced enumerable would execute the original enumerable a second time and thus would be multiple enumeration.
 
-Finally, with Skip/Take-style composition over the original enumerable when the enumerable is a realized collection at runtime, there are complications if the collection changes size so that the slice is also forced to change size, or different items come into view.
+Even in the case where an enumerable type explicitly supports slicing by declaring its own range indexer, this does not free us from the concern about multiple enumeration. The range indexer might provide Skip/Take-style windowing on a remote query or an iterator method. The enumerable returned by such an indexer might be fine to use on its own, but we would not want to enumerate _both_ the sliced enumerable and the original enumerable, because this effectively enumerates the original enumerable twice.
 
-TODO: what if the enumerable declares its own slicer?
+#### No implicit buffering
 
-This proposal does not enable slice subpatterns because of the near certainty of needing to buffer the entire enumerable into memory. The workaround for those who want it would be to take on the buffering explicitly in their code by matching against `enumerable.ToList()` or `enumerable.ToArray().AsSpan()` or similar, where slice subpatterns are already available for use. Buffering the entire enumerable into memory can be an expensive operation, and doing this operation silently during pattern matching could be a pitfall.
+This proposal does not enable slice subpatterns because of the general need to buffer the sliced elements into memory. Those who do want buffering can request it explicitly in their code by matching against `enumerable.ToList()` or `enumerable.ToArray().AsSpan()` or similar, where slice subpatterns are already available for use. Additionally, when matching against such a materialized collection, the type of the slice will be more specific than `IEnumerable`/`IEnumerable<T>`. This more specific type will permit strongly-typed access to the slice as a materialized collection itself.
+
+This also avoids the need to worry about what the sliced type would be when the list pattern is matched against a more specific type than `IEnumerable`/`IEnumerable<T>` and that type doesn't have a range indexer.
 
 In [LDM 2022-10-19](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-10-19.md#allowing-patterns-after-slices), there was interest in restricting slice subpatterns initially but pursuing them later. In light of the above rationale, this proposal recommends not pursuing them.
 
