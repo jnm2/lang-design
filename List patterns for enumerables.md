@@ -50,14 +50,14 @@ The pattern will be evaluated using the enumerator. The enumerator will be obtai
   - `MoveNext()` is called. Evaluation ends, and the list pattern is matched if `MoveNext()` returned `false` and is not matched if it returned `true`.
 - Otherwise, there is a discarding slice pattern (`..`). If there are no more element patterns following the slice pattern, evaluation ends and the list pattern is matched.
 - Otherwise, there are patterns to match at the end of the enumerable:
-  - A buffer is allocated, such as an array or inline array at the discretion of the implementation, with a capacity equal to the number of patterns following the slice pattern.
+  - A buffer is allocated, such as an array or inline array at the discretion of the implementation, with a size equal to the number of patterns following the slice pattern.
   - An attempt is made to fill the buffer. For each pattern following the slice pattern:
     - `MoveNext()` is called. If it returns false, evaluation ends, and the list pattern is not matched.
     - `Current` is accessed and its value is stored in the first available unwritten position in the buffer.
   - Once the buffer has been filled, enumeration continues and the buffer is used as a circular buffer:
     - `MoveNext()` is called. If it returns `false`, enumeration is finished and evaluation moves to the final step of evaluating the remaining patterns.
     - If it returns `true`, `Current` is accessed and its value is stored in the buffer, overwriting the oldest entry still in the buffer. Enumeration continues from the previous step.
-  - Each pattern following the slice pattern is matched against the buffer entries in order, so that the oldest buffer entry is matched with the first pattern that follows the slice pattern, and the newest buffer entry is matched with the last pattern in the list pattern. Evaluation ends. If any pattern fails to match, and the list pattern is not matched. Otherwise, the list pattern is matched.
+  - Each pattern following the slice pattern is matched against the buffer entries in order, so that the oldest buffer entry is matched with the first pattern that follows the slice pattern, and the newest buffer entry is matched with the last pattern in the list pattern. Evaluation ends. If any pattern fails to match, the list pattern is not matched. Otherwise, the list pattern is matched.
 - The enumerator is disposed, if applicable. This step is not skipped when evaluation ends.
 
 If the patterns following the slice pattern consist only of patterns which can match without reading an input value, such as discards or redundant patterns, then an implementation may omit the buffer and the `Current` calls. Rather than enumerating all remaining items, enumeration is only done once for each pattern following the slice pattern. For each, `MoveNext()` is called. If it returns `false`, evaluation ends and the list pattern is not matched. If it returns `true` once for each remaining pattern, evaluation ends and the list pattern is matched.
