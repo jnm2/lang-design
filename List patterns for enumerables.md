@@ -10,9 +10,13 @@ The pattern will be evaluated without multiple enumeration. The slice pattern `.
 
 ## Motivation
 
+
+
 ## Detailed design
 
 Any list pattern will be supported for an enumerable type (a type supported by `foreach`) if the same pattern would be supported by a type that is countable and indexable, but not sliceable. Thus, for the enumerable types gaining support through this proposal, it will be an error for a slice pattern to contain a subpattern. It is an existing requirement that the type additionally be sliceable in order for the slice pattern to have a subpattern; that requirement is not changing in this proposal.
+
+The type being matched against for each element pattern inside the list pattern will be determined the same way the iteration variable type is inferred with the `foreach` statement. For the slice pattern `..` without a subpattern, the type that it is matching against is unspecified.
 
 Async enumerables are not supported. So far in the language, consumption of async enumerables requires the `await` keyword which highlights the point where execution may be suspended.
 
@@ -36,7 +40,7 @@ This proposal does not enable slice subpatterns because of the general need to b
 
 This also avoids the need to worry about what the sliced type would be when the list pattern is matched against a more specific type than `IEnumerable`/`IEnumerable<T>` and that type doesn't have a range indexer.
 
-In [LDM 2022-10-19](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-10-19.md#allowing-patterns-after-slices), there was interest in restricting slice subpatterns initially but pursuing them later. In light of the above rationale, this proposal recommends not pursuing them.
+[LDM 2022-10-19](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-10-19.md#allowing-slicing-to-capture) mentions that it would be strange to allow slice subpatterns for non-countable, non-indexable enumerables unless they are also allowed for countable, indexable, _non-sliceable_ types as well. The conclusion at the time was to wait and see about efficiency once the runtime evaluation is designed. In light of the rationale above, this proposal recommends not pursuing them.
 
 ### Evaluation
 
@@ -64,13 +68,13 @@ If the patterns following the slice pattern consist only of patterns which can m
 
 ## Answered questions
 
-### Allowing slicing on `IEnumerable` types
+### Allowing patterns after slices
 
-On `IEnumerable` types, should we allow `..var x` where `x` is an `IEnumerable` that the compiler implements, similar to collection expressions targeting `IEnumerable<T>`?
+Should we allow `enumerable is [1, 2, .., 3]`?
 
 #### Answer
 
-No, we think it will be a better experience if we only allow sub-patterns under a slice if the type is actually sliceable. ([LDM 2021-04-12](https://github.com/dotnet/csharplang/blob/main/meetings/2021/LDM-2021-04-12.md#list-patterns))
+We should plan on having them eventually. ([LDM 2022-10-19](https://github.com/dotnet/csharplang/blob/main/meetings/2022/LDM-2022-10-19.md#allowing-patterns-after-slices))
 
 ## Open questions
 
