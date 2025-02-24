@@ -17,7 +17,7 @@ class C
 }
 ```
 
-Currently, the code above gives the error CS1612 "Cannot modify the return value of 'C.ArraySegmentProp' because it is not a variable." This restriction is meaningless when the setter is readonly. The restriction is there to remind you to assign the modified struct value back to the property. But there is no modification to the struct value, so there is no reason to assign back to the property.
+Currently, the code above gives the error CS1612 "Cannot modify the return value of 'C.ArraySegmentProp' because it is not a variable." This restriction is meaningless when the setter is readonly. The restriction is there to remind you to assign the modified struct value back to the property. But there is no modification to the struct value when the setter is readonly, so there is no reason to assign back to the property.
 
 ```cs
 // Requested by the current CS1612 error:
@@ -28,8 +28,31 @@ c.ArraySegmentProp = temp; // But this line is purposeless; 'temp' cannot have c
 
 ## Motivation
 
-TODO: Enables named indexers to be simulated without GC overhead
-TODO: Has been lifted for method returns?
+TODO: was it a bug that this same restriction was lifted for invocation expressions only? See how <https://github.com/dotnet/csharpstandard/issues/1277> plays out.
+
+Folks who want to simulate named indexers in C# use properties that return a wrapper with an indexer on it. The wrapper that holds the indexer must be a class today, which increases GC overhead. The only reason the wrapper cannot be a struct is because of the restriction which this proposal removes:
+
+```cs
+var c = new C();
+
+// Proposal: no error because the indexer's set accessor is readonly.
+c.SimulatedNamedIndexer[42] = new object();
+
+class C
+{
+    public WrapperStruct SimulatedNamedIndexer => new(this);
+
+    public readonly struct WrapperStruct(C c)
+    {
+        public object this[int index]
+        {
+            // Indexer accesses private state or calls private methods in 'C'
+            get => ...;
+            set => ...;
+        }
+    }
+}
+```
 
 ## Detailed design
 
@@ -58,7 +81,7 @@ It's desirable for this error to remain, because the setter does mutate the stru
 
 ## Specification
 
-TODO
+TODO: See how <https://github.com/dotnet/csharpstandard/issues/1277> plays out. This whole thing could end up being a bugfix.
 
 ## Expansions
 
@@ -76,4 +99,4 @@ class C
 }
 ```
 
-This error is inappropriate when the properties being initialized are readonly. It could be made more granular, placing the error on each property initializer which calls a _non-readonly_ setter.
+This error is inappropriate when the properties being initialized have readonly `set`/`init` accessors. The error could be made more granular, placed on each property initializer which calls a _non-readonly_ setter.
