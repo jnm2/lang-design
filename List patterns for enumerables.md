@@ -1,6 +1,6 @@
-# List patterns for enumerables
+# List patterns on enumerables
 
-Champion issue: <>
+Champion issue: <https://github.com/dotnet/csharplang/issues/9005>
 
 ## Summary
 
@@ -10,15 +10,15 @@ The pattern will be evaluated without multiple enumeration. The slice pattern `.
 
 ## Motivation
 
-[LDM 2023-20-09](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-10-09.md#list-patterns-on-enumerables) set the following direction:
+[LDM 2023-10-09](https://github.com/dotnet/csharplang/blob/main/meetings/2023/LDM-2023-10-09.md#list-patterns-on-enumerables) set the following direction:
 
 > This is follow-up work from C# 11 that we did not have time in C# 12 to invest in. We intend to continue the work here now; collection expressions supporting more than just indexable and countable types show where our list pattern support falls short.
 
-One noticeable gap is when using LINQ methods. It's common to insert `.Where(...)` somewhere, but when you insert it to filter the items in `items is [var item]` or similar, this puts you in an awkward spot where a lot of rewriting is necessary. There's no built-in helper that recovers the behavior of `is [var item]`. With more complex list patterns, it only gets worse from there.
+One example of where gap is noticed is when using LINQ methods. `.Where(...)` is the type of thing which is common to insert after a collection, but when you insert this in `items is [var item]` or similar, the list pattern is no longer permitted. This puts you in an awkward spot where a lot of rewriting is necessary. There's no built-in helper that recovers the behavior of `is [var item]`. With more complex list patterns, it only gets worse from there.
 
 ## Detailed design
 
-Any list pattern will be supported for an enumerable type (a type supported by `foreach`) if the same pattern would be supported by a type that is countable and indexable, but not sliceable. Thus, for the enumerable types gaining support through this proposal, it will be an error for a slice pattern to contain a subpattern. It is an existing requirement that the type additionally be sliceable in order for the slice pattern to have a subpattern; that requirement is not changing in this proposal.
+Any list pattern will be supported for an enumerable type (a type supported by `foreach`) if the same pattern would be supported by a type that is countable and indexable, but not sliceable (even if the enumerable is sliceable). Thus, for the enumerable types gaining support through this proposal, it will be an error for a slice pattern to contain a subpattern.
 
 The type being matched against for each element pattern inside the list pattern will be determined the same way the iteration variable type is inferred with the `foreach` statement. For the slice pattern `..` without a subpattern, the type that it is matching against is unspecified.
 
@@ -58,7 +58,7 @@ The pattern will be evaluated using the enumerator. The enumerator will be obtai
   - `MoveNext()` is called. Evaluation ends, and the list pattern is matched if `MoveNext()` returned `false` and is not matched if it returned `true`.
 - Otherwise, there is a discarding slice pattern (`..`). If there are no more element patterns following the slice pattern, evaluation ends and the list pattern is matched.
 - Otherwise, there are patterns to match at the end of the enumerable:
-  - A buffer is allocated, such as an array or inline array at the discretion of the implementation, with a size equal to the number of patterns following the slice pattern.
+  - A buffer is obtained, such as an array or inline array at the discretion of the implementation, with a size equal to the number of patterns following the slice pattern.
   - An attempt is made to fill the buffer. For each pattern following the slice pattern:
     - `MoveNext()` is called. If it returns false, evaluation ends, and the list pattern is not matched.
     - `Current` is accessed and its value is stored in the first available unwritten position in the buffer.
@@ -74,7 +74,7 @@ If the patterns following the slice pattern consist only of patterns which can m
 
 ### Allowing patterns after slices
 
-Should we allow `enumerable is [1, 2, .., 3]`?
+Should we allow patterns following the slice pattern, such as `enumerable is [1, 2, .., 3]`?
 
 #### Answer
 

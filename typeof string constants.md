@@ -1,5 +1,3 @@
-# `typeof` string constants
-
 ## Summary
 
 For certain kinds of types, `typeof(`...`).FullName` is considered a constant value. It is allowed anywhere a string constant is allowed, such as in an attribute argument or a constant interpolated string.
@@ -47,7 +45,7 @@ Type parameters are not supported. `typeof(T)` is a type which is not known at c
 
 Bound generics are not supported. `typeof(List<int>).FullName` contains parts known only at runtime. For example: ``"System.Collections.Generic.List`1[[System.Int32, System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e]]"``. The compiler may see only a reference assembly with a different name, or an assembly may load with a different version at runtime than at compile time.
 
-Nullable value types and tuple types are special causes of bound generics and are not supported.
+Nullable value types and tuple types are special cases of bound generics and are not supported.
 
 ### Nullability
 
@@ -76,3 +74,7 @@ Some of the variants of this request are for a `fullnameof` or `pathof` operator
 `fullnameof` could reference namespaces without requiring the naming of a type within the namespace.
 
 `fullnameof` would also be extendable to reference a member, and this is sometimes requested. However, referencing a member along with its containing type name and full namespace seems like specialized use, producing strings which are not usable with any core .NET API. This may be more of a job for an `infoof` operator, providing a reference to the member and letting it be examined at runtime to produce policy-specific formatting suited to the use case.
+
+## Design meetings
+
+https://github.com/dotnet/csharplang/blob/main/meetings/2024/LDM-2024-10-16.md#typeof-string-constants
